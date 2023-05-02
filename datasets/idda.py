@@ -58,8 +58,8 @@ class IDDADataset(VisionDataset):
         img = Image.open(
             dataRoot + "images/" + img_name + ".jpg", "r"
         )  # Image at index 'index'
-        img = self.transform(img)  # pil to tensor
         target = Image.open(dataRoot + "labels/" + img_name + ".png", "r")
+        img, target = self.transform(img, target)
         target = self.target_transform(target)
         return img, target
 
