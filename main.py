@@ -57,11 +57,17 @@ def get_transforms(args):
     # TODO: test your data augmentation by changing the transforms here!
     if args.model == 'deeplabv3_mobilenetv2':
         train_transforms = sstr.Compose([
-            sstr.RandomResizedCrop((512, 928), scale=(0.5, 2.0)),
+            sstr.ColorJitter(brightness = (0.55, 1.6), contrast = (0.6, 1.6), 
+                             saturation = (0.5, 1.6), hue = (-0.05, 0.05)),
+            sstr.RandomRotation(degrees = (-5, 5)),
+            sstr.PadCenterCrop((925, 1644), fill=255), # this removes the
+                                                       # rotation margins
+            sstr.Resize((512, 928)),
             sstr.ToTensor(),
             sstr.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
         test_transforms = sstr.Compose([
+            sstr.Resize((512, 928)),
             sstr.ToTensor(),
             sstr.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
