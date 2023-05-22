@@ -1,63 +1,127 @@
 import copy
 from collections import OrderedDict
-
+from utils.stream_metrics import StreamSegMetrics
+import random
 import numpy as np
 import torch
 
 
 class Server:
 
-    def __init__(self, args, train_clients, test_clients, model, metrics):
-        self.args = args
+    def __init__(self, clients_per_round, num_rounds, train_clients, 
+                 test_clients, model, metrics, random_state = 300890):
+        self.clients_per_round = clients_per_round
+        self.num_rounds = num_rounds
         self.train_clients = train_clients
         self.test_clients = test_clients
         self.model = model
-        self.metrics = metrics
+        self.metrics = {
+            'Train': StreamSegMetrics(n_classes = 16, name = 'Mean IoU'),
+            'Validation': StreamSegMetrics(n_classes = 16, name = 'Mean IoU'),
+            'Test': StreamSegMetrics(n_classes = 16, name = 'Mean IoU')
+        }
+        # The model parameters are saved to a dict and loaded from
+        # the same dict when it gets updated
         self.model_params_dict = copy.deepcopy(self.model.state_dict())
+        # The list of client updates in a round. It is a list of tuples
+        # of the form: (training set size, update)
+        self.updates = []
+        ## This line stays commented for now, plan is
+        ## to call random.seed(...) in the notebook explicitly 
+        ## so as to intuitively restore actually unpredictable behavior
+        # self.prng = np.random.default_rng(random_state)
+        self.prng = np.random.default_rng()
 
     def select_clients(self):
-        num_clients = min(self.args.clients_per_round, len(self.train_clients))
-        return np.random.choice(self.train_clients, num_clients, replace=False)
+        """
+            This method selects a random subset of `self.clients_per_round` clients
+            from the given traning clients, without replacement.
+            :return: list of clients
+        """
+        num_clients = min(self.clients_per_round, len(self.train_clients))
+        return self.prng.choice(self.train_clients, num_clients, replace=False)
+
+    def load_model_on_clients(self):
+        """
+            This function loads the centralized model to the clients at
+            the beginning of each training / testing round.
+        """
+        for c in self.test_clients + self.train_clients:
+            c.model.load_state_dict(self.model_params_dict)
+
 
     def train_round(self, clients):
         """
-            This method trains the model with the dataset of the clients. It handles the training at single round level
+            This method trains the model with the dataset of the clients.
+            It handles the training at single round level.
+            The client updates are saved in the object-level list,
+            they will be aggregated.
             :param clients: list of all the clients to train
             :return: model updates gathered from the clients, to be aggregated
         """
-        updates = []
-        for i, c in enumerate(clients):
-            # TODO: missing code here!
-            raise NotImplementedError
-        return updates
+        for i, client in enumerate(clients):
+            # Train the single client model
+            client.train()
+            num_samples = client.num_samples()
 
-    def aggregate(self, updates):
+            # Get model parameters
+            update = client.generate_update()
+
+            # The list of updates is saved at instance level,
+            # but it is also returned as an independent list after each
+            # train round.
+            self.updates.append((num_samples, update))
+
+    def aggregate(self):
         """
         This method handles the FedAvg aggregation
         :param updates: updates received from the clients
         :return: aggregated parameters
         """
-        # TODO: missing code here!
-        raise NotImplementedError
+        # Here we make the average of the updated weights
+        total_weight = 0
+        base = OrderedDict()
+        for (client_samples, client_model) in self.updates:
+            total_weight += client_samples
+            for key, value in client_model.items():
+                if key in base:
+                    base[key] += client_samples * value.type(torch.FloatTensor)
+                else:
+                    base[key] = client_samples * value.type(torch.FloatTensor)
+        averaged_sol_n = copy.deepcopy(self.model_params_dict)
+        for key, value in base.items():
+            if total_weight != 0:
+                averaged_sol_n[key] = value.to('cuda') / total_weight
+
+        self.model.load_state_dict(averaged_sol_n, strict=False)
+        self.model_params_dict = copy.deepcopy(self.model.state_dict())
+        self.updates = []
+
 
     def train(self):
         """
         This method orchestrates the training the evals and tests at rounds level
         """
-        for r in range(self.args.num_rounds):
-            # TODO: missing code here!
-            raise NotImplementedError
+        for r in range(self.num_rounds):
+            self.load_model_on_clients()
+            clients = self.select_clients()
+            self.train_round(clients)
+            self.aggregate()
+            
+            
 
     def eval_train(self):
         """
         This method handles the evaluation on the train clients
         """
-        # TODO: missing code here!
-        raise NotImplementedError
+        # TODO
+        for c in self.train_clients:
+            c.test()
 
     def test(self):
         """
             This method handles the test on the test clients
         """
-        # TODO: missing code here!
-        raise NotImplementedError
+        # TODO
+        for c in self.test_clients:
+            c.test()
