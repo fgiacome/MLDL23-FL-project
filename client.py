@@ -36,14 +36,16 @@ class Client:
             return self.model(images)['out']
         if self.args.model == 'resnet18':
             return self.model(images)
-        raise NotImplementedError
-
+        
     def run_epoch(self, cur_epoch, optimizer):
         """
         This method locally trains the model with the dataset of the client. It handles the training at mini-batch level
         :param cur_epoch: current epoch of training
         :param optimizer: optimizer used for the local training
         """
+        # Count the number of samples, it should euqal the size of the client dataset
+        samples = 0
+        epoch_loss = float(0)
         for cur_step, (images, labels) in enumerate(self.train_loader):
             # Send data to GPU
             images = images.cuda()
@@ -63,10 +65,12 @@ class Client:
             # In both cases, the pixels are pooled together (there is no
             # distinction for pixels of different images).
             loss = self.reduction(loss)
+            epoch_loss += loss.item()
 
             # Backpropagation
             loss.backward()
             optimizer.step()
+        return samples, epoch_loss / samples
 
     def train(self):
         """
@@ -75,16 +79,22 @@ class Client:
         :return: length of the local dataset, copy of the model parameters
         """
         optimizer = torch.optim.Adam(self.model.parameters(), lr = 1e-3)
+        self.model.train()
         for epoch in range(self.args.num_epochs):
+            # TODO: save history of epoch losses, to print / debug later
             self.run_epoch(epoch, optimizer)
+        return len(self.dataset)
 
     def test(self, metric):
         """
         This method tests the model on the local dataset of the client.
         :param metric: StreamMetric object
         """
-        # TODO: missing code here! [?]
+        self.model.eval()
         with torch.no_grad():
             for i, (images, labels) in enumerate(self.test_loader):
                 labels_hat = self._get_outputs(images)
                 self.update_metric(metric, labels_hat, labels)
+
+    def generate_update(self):
+        return copy.deepcopy(self.model.state_dict())
