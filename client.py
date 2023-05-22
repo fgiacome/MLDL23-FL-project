@@ -98,3 +98,6 @@ class Client:
 
     def generate_update(self):
         return copy.deepcopy(self.model.state_dict())
+    
+    def num_samples(self):
+        return len(self.dataset)
