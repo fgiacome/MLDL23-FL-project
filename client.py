@@ -1,103 +1,161 @@
 import copy
 import torch
-
 from torch import optim, nn
 from collections import defaultdict
 from torch.utils.data import DataLoader
-
+from utils.stream_metrics import StreamSegMetrics
 from utils.utils import HardNegativeMining, MeanReduction
-
 
 class Client:
 
-    def __init__(self, args, dataset, model, test_client=False):
-        self.args = args
-        self.dataset = dataset
-        self.name = self.dataset.client_name
+    def __init__(
+                    self, client_dataset, batch_size, model, dataloader = 'train',
+                    optimizer = 'Adam', lr = 1e-3, device = 'cpu',
+                    reduction = 'MeanReduction'
+                ):
+        # Client dataset and attributes
+        self.dataset = client_dataset
+        self.name = client_dataset.client_name
         self.model = model
-        self.train_loader = DataLoader(self.dataset, batch_size=self.args.bs, shuffle=True, drop_last=True) \
-            if not test_client else None
-        self.test_loader = DataLoader(self.dataset, batch_size=1, shuffle=False)
-        self.criterion = nn.CrossEntropyLoss(ignore_index=255, reduction='none')
-        self.reduction = HardNegativeMining() if self.args.hnm else MeanReduction()
+        self.device = device
+        self.criterion = nn.CrossEntropyLoss(ignore_index = 255, reduction = 'none')
+        self.reduction = MeanReduction() if reduction == 'MeanReduction' \
+                                        else HardNegativeMining()
+        # Number of samples on which the client train = n_batches * batch_size
+        self.num_samples = len(self.dataloader) * batch_size
+
+        # Optimizer initialization
+        if optimizer == 'Adam' or optimizer == 'SGD':
+            self.optimizer = optimizer
+        else:
+            raise NotImplementedError
+        
+        # DataLoader initialization
+        if dataloader == 'train':
+            self.dataloader = DataLoader(client_dataset, batch_size = batch_size, 
+                                        shuffle = True, drop_last = True)
+        elif dataloader == 'test': 
+            self.dataloader = DataLoader(client_dataset, batch_size = 8, 
+                                        shuffle = False)
+        else:
+            raise NotImplementedError
 
     def __str__(self):
         return self.name
-
-    @staticmethod
-    def update_metric(metric, outputs, labels):
-        _, prediction = outputs.max(dim=1)
-        labels = labels.cpu().numpy()
-        prediction = prediction.cpu().numpy()
-        metric.update(labels, prediction)
-
-    def _get_outputs(self, images):
-        if self.args.model == 'deeplabv3_mobilenetv2':
-            return self.model(images)['out']
-        if self.args.model == 'resnet18':
-            return self.model(images)
         
-    def run_epoch(self, cur_epoch, optimizer):
+    def run_epoch(self, optimizer):
         """
         This method locally trains the model with the dataset of the client. It handles the training at mini-batch level
         :param cur_epoch: current epoch of training
         :param optimizer: optimizer used for the local training
         """
-        # Count the number of samples, it should euqal the size of the client dataset
-        samples = 0
-        epoch_loss = float(0)
-        for cur_step, (images, labels) in enumerate(self.train_loader):
-            # Send data to GPU
-            images = images.cuda()
-            labels = labels.cuda()
+        # Mean_IoU initialization
+        mean_iou = StreamSegMetrics(n_classes = 16, name = 'Mean IoU')
 
-            # Reset the gradients
+        # Cumulative loss initialization
+        cumulative_loss = 0
+
+        # Iterations over batches
+        for images, labels in self.dataloader:
+
+            # Send data to device
+            images = images.to(self.device)
+            labels = labels.to(self.device)
+
+            # Reset gradient
             optimizer.zero_grad()
 
-            # Predictions
-            labels_hat = self._get_outputs(images)
+            # Forward
+            labels_hat = self.model(images)['out']
+            labels_pred = torch.argmax(labels_hat, dim = 1)
 
-            # Compute **unreduced** loss
+            # Compute loss
             loss = self.criterion(labels_hat, labels)
-
-            # MeanReduction computes the mean of the loss of each pixel;
-            # HardNegativeMining computes the mean of the top-25% pixel-losses;
-            # In both cases, the pixels are pooled together (there is no
-            # distinction for pixels of different images).
-            loss = self.reduction(loss)
-            epoch_loss += loss.item()
+            loss = self.reduction(loss, labels)
 
             # Backpropagation
             loss.backward()
             optimizer.step()
-        return samples, epoch_loss / samples
 
-    def train(self):
+            # Update loss and metrics
+            cumulative_loss += loss.item()
+            mean_iou.update(labels.cpu().numpy(), labels_pred.cpu().numpy())
+
+        return cumulative_loss / self.num_samples, mean_iou.get_results()
+
+    def train(self, num_epochs = 1):
         """
         This method locally trains the model with the dataset of the client. It handles the training at epochs level
         (by calling the run_epoch method for each local epoch of training)
         :return: length of the local dataset, copy of the model parameters
         """
-        optimizer = torch.optim.Adam(self.model.parameters(), lr = 1e-3)
+        
+        # Optimizer initialization
+        if self.optimizer == 'Adam':
+            optimizer = torch.optim.Adam(self.model.parameters(), lr = lr)
+        elif self.optimizer == 'SGD':
+            optimizer = torch.optim.SGD(self.model.parameters(), lr = lr,
+                                            momentum = .9, weight_decay = 1e-4)
+
+        # Model's train mode
         self.model.train()
-        for epoch in range(self.args.num_epochs):
-            # TODO: save history of epoch losses, to print / debug later
-            self.run_epoch(epoch, optimizer)
-        return len(self.dataset)
+
+        # Lists initializations
+        loss_list = [0] * num_epochs
+        mean_iou_list = [0] * num_epochs
+
+        # Running over epochs
+        for epoch in range(num_epochs):
+
+            # Run epoch
+            loss, mean_iou = self.run_epoch(optimizer)
+
+            # Update lists
+            loss_list[epoch] = loss
+            mean_iou_list[epoch] = mean_iou
+        
+        return loss_list, mean_iou_list
 
     def test(self, metric):
         """
         This method tests the model on the local dataset of the client.
         :param metric: StreamMetric object
         """
+
+        # This method tests the model on local images
+        # Model's evaluation mode
         self.model.eval()
+
+        # Metric initialization
+        mean_iou = StreamSegMetrics(n_classes = 16, name = 'Mean IoU')
+
+        # Cumulative loss initialization
+        cumulative_loss = 0
+
+        # Iterations over batches
         with torch.no_grad():
-            for i, (images, labels) in enumerate(self.test_loader):
-                labels_hat = self._get_outputs(images)
-                self.update_metric(metric, labels_hat, labels)
+            for images, labels in self.dataloader:
+
+                # Send images and labels to device
+                images = images.to(self.device)
+                labels = labels.to(self.device)
+
+                # Compute predictions
+                labels_hat = self.model(images)['out']
+                labels_pred = torch.argmax(labels_hat, dim = 1)
+
+                # Compute loss
+                loss = self.criterion(labels_hat, labels)
+                loss = self.reduction(loss, labels)
+
+                # Update loss and metrics
+                cumulative_loss += loss.item()
+                mean_iou.update(labels.cpu().numpy(), labels_pred.cpu().numpy())
+
+        return cumulative_loss / self.num_samples, mean_iou.get_results()
 
     def generate_update(self):
         return copy.deepcopy(self.model.state_dict())
     
-    def num_samples(self):
-        return len(self.dataset)
+    def get_num_samples(self):
+        return self.num_samples
