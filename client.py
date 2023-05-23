@@ -22,14 +22,6 @@ class Client:
         self.criterion = nn.CrossEntropyLoss(ignore_index = 255, reduction = 'none')
         self.reduction = MeanReduction() if reduction == 'MeanReduction' \
                                         else HardNegativeMining()
-        # Number of samples on which the client train = n_batches * batch_size
-        self.num_samples = len(self.dataloader) * batch_size
-
-        # Optimizer initialization
-        if optimizer == 'Adam' or optimizer == 'SGD':
-            self.optimizer = optimizer
-        else:
-            raise NotImplementedError
         
         # DataLoader initialization
         if dataloader == 'train':
@@ -38,6 +30,15 @@ class Client:
         elif dataloader == 'test': 
             self.dataloader = DataLoader(client_dataset, batch_size = 8, 
                                         shuffle = False)
+        else:
+            raise NotImplementedError
+        
+        # Number of samples on which the client train = n_batches * batch_size
+        self.num_samples = len(self.dataloader) * batch_size
+
+        # Optimizer initialization
+        if optimizer == 'Adam' or optimizer == 'SGD':
+            self.optimizer = optimizer
         else:
             raise NotImplementedError
 
