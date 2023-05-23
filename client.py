@@ -18,6 +18,7 @@ class Client:
         self.name = client_dataset.client_name
         self.model = model
         self.device = device
+        self.learning_rate = lr
         self.criterion = nn.CrossEntropyLoss(ignore_index = 255, reduction = 'none')
         self.reduction = MeanReduction() if reduction == 'MeanReduction' \
                                         else HardNegativeMining()
@@ -92,9 +93,9 @@ class Client:
         
         # Optimizer initialization
         if self.optimizer == 'Adam':
-            optimizer = torch.optim.Adam(self.model.parameters(), lr = lr)
+            optimizer = torch.optim.Adam(self.model.parameters(), lr = self.learning_rate)
         elif self.optimizer == 'SGD':
-            optimizer = torch.optim.SGD(self.model.parameters(), lr = lr,
+            optimizer = torch.optim.SGD(self.model.parameters(), lr = self.learning_rate,
                                             momentum = .9, weight_decay = 1e-4)
 
         # Model's train mode
