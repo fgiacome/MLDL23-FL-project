@@ -8,18 +8,19 @@ import torch
 
 class Server:
 
-    def __init__(self, clients_per_round, num_rounds, train_clients, 
+    def __init__(self, clients_per_round, num_rounds, epochs_per_round, train_clients, 
                  test_clients, model, metrics, random_state = 300890):
         self.clients_per_round = clients_per_round
         self.num_rounds = num_rounds
         self.train_clients = train_clients
         self.test_clients = test_clients
         self.model = model
-        self.metrics = {
-            'Train': StreamSegMetrics(n_classes = 16, name = 'Mean IoU'),
-            'Validation': StreamSegMetrics(n_classes = 16, name = 'Mean IoU'),
-            'Test': StreamSegMetrics(n_classes = 16, name = 'Mean IoU')
-        }
+        self.epochs_per_round = epochs_per_round
+        # self.metrics = {
+        #     'Train': StreamSegMetrics(n_classes = 16, name = 'Mean IoU'),
+        #     'Validation': StreamSegMetrics(n_classes = 16, name = 'Mean IoU'),
+        #     'Test': StreamSegMetrics(n_classes = 16, name = 'Mean IoU')
+        # }
         # The model parameters are saved to a dict and loaded from
         # the same dict when it gets updated
         self.model_params_dict = copy.deepcopy(self.model.state_dict())
@@ -57,12 +58,16 @@ class Server:
             The client updates are saved in the object-level list,
             they will be aggregated.
             :param clients: list of all the clients to train
-            :return: model updates gathered from the clients, to be aggregated
         """
+        train_loss_miou = {str(c): {} for c in clients}
+
         for i, client in enumerate(clients):
+            num_samples = client.get_num_samples()
+
             # Train the single client model
-            client.train()
-            num_samples = client.num_samples()
+            loss, miou = client.train(self.epochs_per_round)
+            train_loss_miou[str(client)]["Loss"] = loss
+            train_loss_miou[str(client)]["mIoU"] = miou
 
             # Get model parameters
             update = client.generate_update()
@@ -71,6 +76,7 @@ class Server:
             # but it is also returned as an independent list after each
             # train round.
             self.updates.append((num_samples, update))
+        return train_loss_miou
 
     def aggregate(self):
         """
@@ -88,40 +94,55 @@ class Server:
                     base[key] += client_samples * value.type(torch.FloatTensor)
                 else:
                     base[key] = client_samples * value.type(torch.FloatTensor)
-        averaged_sol_n = copy.deepcopy(self.model_params_dict)
+        #averaged_sol_n = copy.deepcopy(self.model_params_dict)
         for key, value in base.items():
             if total_weight != 0:
-                averaged_sol_n[key] = value.to('cuda') / total_weight
+                #averaged_sol_n[key] = value.to('cuda') / total_weight
+                self.model_params_dict[key] = value.to('cuda') / total_weight
 
-        self.model.load_state_dict(averaged_sol_n, strict=False)
-        self.model_params_dict = copy.deepcopy(self.model.state_dict())
+        #self.model.load_state_dict(averaged_sol_n, strict=False)
+        self.model.load_state_dict(self.model_params_dict, strict=False)
+        #self.model_params_dict = copy.deepcopy(self.model.state_dict())
         self.updates = []
-
 
     def train(self):
         """
         This method orchestrates the training the evals and tests at rounds level
+        :return: list (one elem per round) of dicts (one key per client) of dicts
+            (loss, miou) of lists (one elem per epoch) of scalars
         """
+        orchestra_statistics = []
         for r in range(self.num_rounds):
             self.load_model_on_clients()
             clients = self.select_clients()
-            self.train_round(clients)
+            train_stats = self.train_round(clients)
+            orchestra_statistics.append(train_stats)
             self.aggregate()
-            
-            
+        return orchestra_statistics
 
     def eval_train(self):
         """
         This method handles the evaluation on the train clients
+        :return: dict (one key per client) of dicts (loss, miou) of scalars
         """
-        # TODO
+        self.load_model_on_clients()
+        eval_statistics = {str(c): {} for c in self.train_clients}
         for c in self.train_clients:
-            c.test()
+            l, m = c.test()
+            eval_statistics[str(c)]["Loss"] = l
+            eval_statistics[str(c)]["mIoU"] = m
+        return eval_statistics
+
 
     def test(self):
         """
-            This method handles the test on the test clients
+        This method handles the test on the test clients
+        :return: dict (one key per client) of dicts (loss, miou) of scalars
         """
-        # TODO
+        self.load_model_on_clients()
+        eval_statistics = {str(c): {} for c in self.test_clients}
         for c in self.test_clients:
-            c.test()
+            l, m = c.test()
+            eval_statistics[str(c)]["Loss"] = l
+            eval_statistics[str(c)]["mIoU"] = m
+        return eval_statistics
