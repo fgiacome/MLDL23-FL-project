@@ -118,7 +118,7 @@ class Client:
         
         return loss_list, mean_iou_list
 
-    def test(self, metric):
+    def test(self):
         """
         This method tests the model on the local dataset of the client.
         :param metric: StreamMetric object
