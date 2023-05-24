@@ -48,7 +48,7 @@ class Server:
             the beginning of each training / testing round.
         """
         for c in self.test_clients + self.train_clients:
-            c.model.load_state_dict(self.model_params_dict)
+            c.model.load_state_dict(self.model_params_dict, strict=False)
 
 
     def train_round(self, clients):
