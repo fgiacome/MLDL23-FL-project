@@ -7,9 +7,17 @@ import torch
 
 
 class Server:
-
-    def __init__(self, clients_per_round, num_rounds, epochs_per_round, train_clients, 
-                 test_clients, model, metrics, random_state = 300890):
+    def __init__(
+        self,
+        clients_per_round,
+        num_rounds,
+        epochs_per_round,
+        train_clients,
+        test_clients,
+        model,
+        metrics,
+        random_state=300890,
+    ):
         self.clients_per_round = clients_per_round
         self.num_rounds = num_rounds
         self.train_clients = train_clients
@@ -28,36 +36,35 @@ class Server:
         # of the form: (training set size, update)
         self.updates = []
         ## This line stays commented for now, plan is
-        ## to call random.seed(...) in the notebook explicitly 
+        ## to call random.seed(...) in the notebook explicitly
         ## so as to intuitively restore actually unpredictable behavior
         # self.prng = np.random.default_rng(random_state)
         self.prng = np.random.default_rng()
 
     def select_clients(self):
         """
-            This method selects a random subset of `self.clients_per_round` clients
-            from the given traning clients, without replacement.
-            :return: list of clients
+        This method selects a random subset of `self.clients_per_round` clients
+        from the given traning clients, without replacement.
+        :return: list of clients
         """
         num_clients = min(self.clients_per_round, len(self.train_clients))
         return self.prng.choice(self.train_clients, num_clients, replace=False)
 
     def load_model_on_clients(self):
         """
-            This function loads the centralized model to the clients at
-            the beginning of each training / testing round.
+        This function loads the centralized model to the clients at
+        the beginning of each training / testing round.
         """
         for c in self.test_clients + self.train_clients:
             c.model.load_state_dict(self.model_params_dict, strict=False)
 
-
     def train_round(self, clients):
         """
-            This method trains the model with the dataset of the clients.
-            It handles the training at single round level.
-            The client updates are saved in the object-level list,
-            they will be aggregated.
-            :param clients: list of all the clients to train
+        This method trains the model with the dataset of the clients.
+        It handles the training at single round level.
+        The client updates are saved in the object-level list,
+        they will be aggregated.
+        :param clients: list of all the clients to train
         """
         train_loss_miou = {str(c): {} for c in clients}
 
@@ -87,22 +94,22 @@ class Server:
         # Here we make the average of the updated weights
         total_weight = 0
         base = OrderedDict()
-        for (client_samples, client_model) in self.updates:
+        for client_samples, client_model in self.updates:
             total_weight += client_samples
             for key, value in client_model.items():
                 if key in base:
                     base[key] += client_samples * value.type(torch.FloatTensor)
                 else:
                     base[key] = client_samples * value.type(torch.FloatTensor)
-        #averaged_sol_n = copy.deepcopy(self.model_params_dict)
+        # averaged_sol_n = copy.deepcopy(self.model_params_dict)
         for key, value in base.items():
             if total_weight != 0:
-                #averaged_sol_n[key] = value.to('cuda') / total_weight
-                self.model_params_dict[key] = value.to('cuda') / total_weight
+                # averaged_sol_n[key] = value.to('cuda') / total_weight
+                self.model_params_dict[key] = value.to("cuda") / total_weight
 
-        #self.model.load_state_dict(averaged_sol_n, strict=False)
+        # self.model.load_state_dict(averaged_sol_n, strict=False)
         self.model.load_state_dict(self.model_params_dict, strict=False)
-        #self.model_params_dict = copy.deepcopy(self.model.state_dict())
+        # self.model_params_dict = copy.deepcopy(self.model.state_dict())
         self.updates = []
 
     def train(self):
@@ -132,7 +139,6 @@ class Server:
             eval_statistics[str(c)]["Loss"] = l
             eval_statistics[str(c)]["mIoU"] = m
         return eval_statistics
-
 
     def test(self):
         """

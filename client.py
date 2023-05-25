@@ -6,45 +6,52 @@ from torch.utils.data import DataLoader
 from utils.stream_metrics import StreamSegMetrics
 from utils.utils import HardNegativeMining, MeanReduction
 
-class Client:
 
+class Client:
     def __init__(
-                    self, client_dataset, batch_size, model, dataloader = 'train',
-                    optimizer = 'Adam', lr = 1e-3, device = 'cpu',
-                    reduction = 'MeanReduction'
-                ):
+        self,
+        client_dataset,
+        batch_size,
+        model,
+        dataloader="train",
+        optimizer="Adam",
+        lr=1e-3,
+        device="cpu",
+        reduction="MeanReduction",
+    ):
         # Client dataset and attributes
         self.dataset = client_dataset
         self.name = client_dataset.client_name
         self.model = model
         self.device = device
         self.learning_rate = lr
-        self.criterion = nn.CrossEntropyLoss(ignore_index = 255, reduction = 'none')
-        self.reduction = MeanReduction() if reduction == 'MeanReduction' \
-                                        else HardNegativeMining()
-        
+        self.criterion = nn.CrossEntropyLoss(ignore_index=255, reduction="none")
+        self.reduction = (
+            MeanReduction() if reduction == "MeanReduction" else HardNegativeMining()
+        )
+
         # DataLoader initialization
-        if dataloader == 'train':
-            self.dataloader = DataLoader(client_dataset, batch_size = batch_size, 
-                                        shuffle = True, drop_last = True)
-        elif dataloader == 'test': 
-            self.dataloader = DataLoader(client_dataset, batch_size = 8, 
-                                        shuffle = False)
+        if dataloader == "train":
+            self.dataloader = DataLoader(
+                client_dataset, batch_size=batch_size, shuffle=True, drop_last=True
+            )
+        elif dataloader == "test":
+            self.dataloader = DataLoader(client_dataset, batch_size=8, shuffle=False)
         else:
             raise NotImplementedError
-        
+
         # Number of samples on which the client train = n_batches * batch_size
         self.num_samples = len(self.dataloader) * batch_size
 
         # Optimizer initialization
-        if optimizer == 'Adam' or optimizer == 'SGD':
+        if optimizer == "Adam" or optimizer == "SGD":
             self.optimizer = optimizer
         else:
             raise NotImplementedError
 
     def __str__(self):
         return self.name
-        
+
     def run_epoch(self, optimizer):
         """
         This method locally trains the model with the dataset of the client. It handles the training at mini-batch level
@@ -52,14 +59,13 @@ class Client:
         :param optimizer: optimizer used for the local training
         """
         # Mean_IoU initialization
-        mean_iou = StreamSegMetrics(n_classes = 16, name = 'Mean IoU')
+        mean_iou = StreamSegMetrics(n_classes=16, name="Mean IoU")
 
         # Cumulative loss initialization
         cumulative_loss = 0
 
         # Iterations over batches
         for images, labels in self.dataloader:
-
             # Send data to device
             images = images.to(self.device)
             labels = labels.to(self.device)
@@ -68,8 +74,8 @@ class Client:
             optimizer.zero_grad()
 
             # Forward
-            labels_hat = self.model(images)['out']
-            labels_pred = torch.argmax(labels_hat, dim = 1)
+            labels_hat = self.model(images)["out"]
+            labels_pred = torch.argmax(labels_hat, dim=1)
 
             # Compute loss
             loss = self.criterion(labels_hat, labels)
@@ -85,19 +91,23 @@ class Client:
 
         return cumulative_loss / self.num_samples, mean_iou.get_results()
 
-    def train(self, num_epochs = 1):
+    def train(self, num_epochs=1):
         """
         This method locally trains the model with the dataset of the client. It handles the training at epochs level
         (by calling the run_epoch method for each local epoch of training)
         :return: length of the local dataset, copy of the model parameters
         """
-        
+
         # Optimizer initialization
-        if self.optimizer == 'Adam':
-            optimizer = torch.optim.Adam(self.model.parameters(), lr = self.learning_rate)
-        elif self.optimizer == 'SGD':
-            optimizer = torch.optim.SGD(self.model.parameters(), lr = self.learning_rate,
-                                            momentum = .9, weight_decay = 1e-4)
+        if self.optimizer == "Adam":
+            optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        elif self.optimizer == "SGD":
+            optimizer = torch.optim.SGD(
+                self.model.parameters(),
+                lr=self.learning_rate,
+                momentum=0.9,
+                weight_decay=1e-4,
+            )
 
         # Model's train mode
         self.model.train()
@@ -108,14 +118,13 @@ class Client:
 
         # Running over epochs
         for epoch in range(num_epochs):
-
             # Run epoch
             loss, mean_iou = self.run_epoch(optimizer)
 
             # Update lists
             loss_list[epoch] = loss
             mean_iou_list[epoch] = mean_iou
-        
+
         return loss_list, mean_iou_list
 
     def test(self):
@@ -129,7 +138,7 @@ class Client:
         self.model.eval()
 
         # Metric initialization
-        mean_iou = StreamSegMetrics(n_classes = 16, name = 'Mean IoU')
+        mean_iou = StreamSegMetrics(n_classes=16, name="Mean IoU")
 
         # Cumulative loss initialization
         cumulative_loss = 0
@@ -137,14 +146,13 @@ class Client:
         # Iterations over batches
         with torch.no_grad():
             for images, labels in self.dataloader:
-
                 # Send images and labels to device
                 images = images.to(self.device)
                 labels = labels.to(self.device)
 
                 # Compute predictions
-                labels_hat = self.model(images)['out']
-                labels_pred = torch.argmax(labels_hat, dim = 1)
+                labels_hat = self.model(images)["out"]
+                labels_pred = torch.argmax(labels_hat, dim=1)
 
                 # Compute loss
                 loss = self.criterion(labels_hat, labels)
@@ -158,6 +166,6 @@ class Client:
 
     def generate_update(self):
         return copy.deepcopy(self.model.state_dict())
-    
+
     def get_num_samples(self):
         return self.num_samples
