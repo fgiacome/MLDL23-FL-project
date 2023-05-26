@@ -49,11 +49,13 @@ class FourierDomainAdaptation(object):
     """
     Perform FDA on image, apply given style
     To apply stile, image should be reshaped to 1080 * 1920
-    :style: ndarray of shape C, H, W with C = 3, H < 1080 and W < 1920
+    :param style: ndarray of shape 3, 1080, 1920
+    :param beta: beta parameter of FDA
     """
     def __init__(self, style, beta):
         self.style = style
         self.beta = beta
+        self.resize = Resize((1080, 1920))
 
     @staticmethod
     def _calc_window_dims(beta: float):
@@ -63,11 +65,21 @@ class FourierDomainAdaptation(object):
         w2 = 960 + math.ceil(1920*beta)
         return h1,h2,w1,w2
     
-    def __call__(self, image, lbl=None):
-        # resize the image
+    @staticmethod
+    def get_style_from_img(image):
         resize = Resize((1080,1920))
-        reresize = Resize((image.height, image.width))
         image = resize(image)
+        x = np.asarray(image, np.float32)
+        x = x.transpose((2, 0, 1))
+        fftx = np.fft.fft2(x, axes=(-2, -1))
+        amp = np.abs(fftx)
+        amp_shift = np.fft.fftshift(amp, axes=(-2, -1))
+        return amp_shift
+
+    
+    def __call__(self, image, lbl=None):
+        reresize = Resize((image.height, image.width))
+        image = self.resize(image)
 
         x = np.asarray(image, np.float32)
         x = x.transpose((2, 0, 1))
