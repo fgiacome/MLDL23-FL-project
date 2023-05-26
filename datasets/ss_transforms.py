@@ -120,7 +120,7 @@ class RandomFourierDomainAdaptation(object):
     def get_style_from_img(image):
         return FourierDomainAdaptation.get_style_from_img(image)
     
-    def __call__(self, img, lbl=None)
+    def __call__(self, img, lbl=None):
         style = random.choice(self.styles)
         h1, h2, w1, w2 = self.window
         style = np.pad(style, ((0, 0), (h1, 1080-h2-1), (w1, 1920-w2-1)))
