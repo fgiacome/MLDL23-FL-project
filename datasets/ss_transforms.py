@@ -53,6 +53,7 @@ class FourierDomainAdaptation(object):
     :param beta: beta parameter of FDA
     """
     def __init__(self, style, beta):
+        assert style.shape == (3, 1080, 1920)
         self.style = style
         self.beta = beta
         self.resize = Resize((1080, 1920))
@@ -101,6 +102,32 @@ class FourierDomainAdaptation(object):
         else:
             return image_pp
 
+class RandomFourierDomainAdaptation(object):
+    """
+        Creates a style bank and applies a random style to
+        the given PIL image
+    """
+    def __init__(self, beta):
+        self.beta = beta
+        self.styles = []
+    
+    def add_style(self, style):
+        self.styles.append(style)
+    
+    @staticmethod
+    def get_style_from_img(image):
+        return FourierDomainAdaptation.get_style_from_img(image)
+    
+    def __call__(self, img, lbl=None)
+        style = random.choice(self.styles)
+        fda = FourierDomainAdaptation(style, self.beta)
+        if lbl is not None:
+            img, lbl = fda(img, lbl)
+            return img, lbl
+        else:
+            return fda(img)
+            
+        
 
 class Resize(object):
     """Resize the input PIL Image to the given size.
