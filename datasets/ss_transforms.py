@@ -93,7 +93,7 @@ class FourierDomainAdaptation(object):
         image_pp = np.fft.ifft2(fftx_, axes=(-2, -1))
         image_pp = np.clip(np.round(image_pp), 0., 255.)
         
-        image_pp = Image.fromarray(np.uint8(image_pp).transpose((1, 2, 0))[:, :, ::-1])
+        image_pp = Image.fromarray(np.uint8(image_pp).transpose((1, 2, 0)))
         image_pp = reresize(image_pp)
         
         if lbl is not None:
