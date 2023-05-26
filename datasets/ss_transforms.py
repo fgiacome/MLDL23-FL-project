@@ -45,6 +45,50 @@ class Compose(object):
         format_string += '\n)'
         return format_string
 
+class FourierDomainAdaptation(object):
+    """
+    Perform FDA on image, apply given style
+    To apply stile, image should be reshaped to 1080 * 1920
+    :style: ndarray of shape C, H, W with C = 3, H < 1080 and W < 1920
+    """
+    def __init__(self, style, beta):
+        self.style = style
+        self.beta = beta
+
+    @staticmethod
+    def _calc_window_dims(beta: float):
+        h1 = 541 - math.ceil(1080*beta)
+        h2 = 540 + math.ceil(1080*beta)
+        w1 = 961 - math.ceil(1920*beta)
+        w2 = 960 + math.ceil(1920*beta)
+        return h1,h2,w1,w2
+    
+    def __call__(self, image, lbl=None):
+        # resize the image
+        resize = Resize((1080,1920))
+        reresize = Resize((image.height, image.width))
+        image = resize(image)
+
+        x = np.asarray(image, np.float32)
+        x = x.transpose((2, 0, 1))
+        fftx = np.fft.fft2(x, axes=(-2, -1))
+        amp, pha = np.abs(fftx), np.angle(fftx)
+        amp_shift = np.fft.fftshift(amp, axes=(-2,-1))
+        h1,h2,w1,w2 = self._calc_window_dims(self.beta)
+        amp_shift[:, h1:h2, w1:w2] = self.style
+        amp_ = np.fft.ifftshift(amp_shift, axes=(-2, -1))
+        fftx_ = amp_ * np.exp(1j * pha)
+        image_pp = np.fft.ifft2(fftx_, axes=(-2, -1))
+        image_pp = np.clip(np.round(image_pp), 0., 255.)
+        
+        image_pp = Image.fromarray(np.uint8(image_pp).transpose((1, 2, 0))[:, :, ::-1])
+        image_pp = reresize(image_pp)
+        
+        if lbl is not None:
+            return image_pp, lbl
+        else:
+            return lbl
+
 
 class Resize(object):
     """Resize the input PIL Image to the given size.
