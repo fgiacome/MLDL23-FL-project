@@ -114,7 +114,7 @@ class RandomFourierDomainAdaptation(object):
     
     def add_style(self, style):
         h1, h2, w1, w2 = self.window
-        self.styles.append(style[:, h1:h2, w1:w2])
+        self.styles.append(style[:, h1:h2, w1:w2].copy())
     
     @staticmethod
     def get_style_from_img(image):
