@@ -123,7 +123,7 @@ class RandomFourierDomainAdaptation(object):
     def __call__(self, img, lbl=None):
         style = random.choice(self.styles)
         h1, h2, w1, w2 = self.window
-        style = np.pad(style, ((0, 0), (h1, 1080-h2-1), (w1, 1920-w2-1)))
+        style = np.pad(style, ((0, 0), (h1, 1080-h2), (w1, 1920-w2)))
         fda = FourierDomainAdaptation(style, self.beta)
         if lbl is not None:
             img, lbl = fda(img, lbl)
