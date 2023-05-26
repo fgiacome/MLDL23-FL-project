@@ -59,10 +59,10 @@ class FourierDomainAdaptation(object):
 
     @staticmethod
     def _calc_window_dims(beta: float):
-        h1 = 541 - math.ceil(1080*beta)
-        h2 = 540 + math.ceil(1080*beta)
-        w1 = 961 - math.ceil(1920*beta)
-        w2 = 960 + math.ceil(1920*beta)
+        h1 = 541 - math.ceil(1080*beta/2)
+        h2 = 540 + math.ceil(1080*beta/2)
+        w1 = 961 - math.ceil(1920*beta/2)
+        w2 = 960 + math.ceil(1920*beta/2)
         return h1,h2,w1,w2
     
     @staticmethod
@@ -87,7 +87,7 @@ class FourierDomainAdaptation(object):
         amp, pha = np.abs(fftx), np.angle(fftx)
         amp_shift = np.fft.fftshift(amp, axes=(-2,-1))
         h1,h2,w1,w2 = self._calc_window_dims(self.beta)
-        amp_shift[:, h1:h2, w1:w2] = self.style
+        amp_shift[:, h1:h2, w1:w2] = self.style[:, h1:h2, w1:w2] 
         amp_ = np.fft.ifftshift(amp_shift, axes=(-2, -1))
         fftx_ = amp_ * np.exp(1j * pha)
         image_pp = np.fft.ifft2(fftx_, axes=(-2, -1))
@@ -99,7 +99,7 @@ class FourierDomainAdaptation(object):
         if lbl is not None:
             return image_pp, lbl
         else:
-            return lbl
+            return image_pp
 
 
 class Resize(object):
