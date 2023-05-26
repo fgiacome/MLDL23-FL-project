@@ -110,9 +110,11 @@ class RandomFourierDomainAdaptation(object):
     def __init__(self, beta):
         self.beta = beta
         self.styles = []
+        self.window = FourierDomainAdaptation._calc_window_dims(beta)
     
     def add_style(self, style):
-        self.styles.append(style)
+        h1, h2, w1, w2 = self.window
+        self.styles.append(style[:, h1:h2, w1:w2])
     
     @staticmethod
     def get_style_from_img(image):
@@ -120,6 +122,8 @@ class RandomFourierDomainAdaptation(object):
     
     def __call__(self, img, lbl=None)
         style = random.choice(self.styles)
+        h1, h2, w1, w2 = self.window
+        style = np.pad(style, ((0, 0), (h1, 1080-h2-1), (w1, 1920-w2-1)))
         fda = FourierDomainAdaptation(style, self.beta)
         if lbl is not None:
             img, lbl = fda(img, lbl)
