@@ -4,8 +4,10 @@ from torch import optim, nn
 from collections import defaultdict
 from torch.utils.data import DataLoader
 from utils.stream_metrics import StreamSegMetrics
-from utils.utils import HardNegativeMining, MeanReduction
+from utils.utils import HardNegativeMining, MeanReduction, SelfTrainingLoss
 
+class NoTeacherException(Exception):
+    pass
 
 class Client:
     def __init__(
@@ -18,6 +20,7 @@ class Client:
         lr=1e-3,
         device="cpu",
         reduction="MeanReduction",
+        self_training = False
     ):
         # Client dataset and attributes
         self.dataset = client_dataset
@@ -25,10 +28,14 @@ class Client:
         self.model = model
         self.device = device
         self.learning_rate = lr
+        self.self_training = self_training
         self.criterion = nn.CrossEntropyLoss(ignore_index=255, reduction="none")
         self.reduction = (
             MeanReduction() if reduction == "MeanReduction" else HardNegativeMining()
         )
+
+        if self.self_training is True:
+            self.criterion = SelfTrainingLoss()
 
         # DataLoader initialization
         if dataloader == "train":
@@ -78,8 +85,11 @@ class Client:
             labels_pred = torch.argmax(labels_hat, dim=1)
 
             # Compute loss
-            loss = self.criterion(labels_hat, labels)
-            loss = self.reduction(loss, labels)
+            if self.self_training is False:
+                loss = self.criterion(labels_hat, labels)
+                loss = self.reduction(loss, labels)
+            else:
+                loss = self.criterion.forward(labels_pred, images)
 
             # Backpropagation
             loss.backward()
@@ -169,3 +179,13 @@ class Client:
 
     def get_num_samples(self):
         return self.num_samples
+
+    def set_teacher(self, model):
+        if isinstance(self.self_training, SelfTrainingLoss):
+            raise NoTeacherException
+        self.criterion.set_teacher(model)
+    
+    def update_teacher(self, state_dict):
+        if isinstance(self.self_training, SelfTrainingLoss):
+            raise NoTeacherException
+        self.criterion.teacher.load_state_dict(state_dict)

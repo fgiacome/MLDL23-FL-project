@@ -16,6 +16,7 @@ class Server:
         test_clients,
         model,
         metrics,
+        teacher_update_rounds = None,
         random_state=300890,
     ):
         self.clients_per_round = clients_per_round
@@ -24,6 +25,7 @@ class Server:
         self.test_clients = test_clients
         self.model = model
         self.epochs_per_round = epochs_per_round
+        self.teacher_update_rounds = teacher_update_rounds
         # self.metrics = {
         #     'Train': StreamSegMetrics(n_classes = 16, name = 'Mean IoU'),
         #     'Validation': StreamSegMetrics(n_classes = 16, name = 'Mean IoU'),
@@ -49,6 +51,14 @@ class Server:
         """
         num_clients = min(self.clients_per_round, len(self.train_clients))
         return self.prng.choice(self.train_clients, num_clients, replace=False)
+
+    def load_teacher_model_on_clients(self):
+        """
+        This function loads the centralized model to the clients'
+        self training loss object as a teacher.
+        """
+        for c in self.test_clients + self.train_clients:
+            c.update_teacher(self.model_params_dict, strict=False)
 
     def load_model_on_clients(self):
         """
@@ -121,6 +131,9 @@ class Server:
         orchestra_statistics = []
         for r in range(self.num_rounds):
             self.load_model_on_clients()
+            if self.teacher_update_rounds is not None:
+                if r % self.teacher_update_rounds == 0:
+                    self.load_teacher_model_on_clients()
             clients = self.select_clients()
             train_stats = self.train_round(clients)
             orchestra_statistics.append(train_stats)
