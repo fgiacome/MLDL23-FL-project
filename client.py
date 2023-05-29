@@ -29,13 +29,14 @@ class Client:
         self.device = device
         self.learning_rate = lr
         self.self_training = self_training
-        self.criterion = nn.CrossEntropyLoss(ignore_index=255, reduction="none")
         self.reduction = (
             MeanReduction() if reduction == "MeanReduction" else HardNegativeMining()
         )
 
         if self.self_training is True:
             self.criterion = SelfTrainingLoss()
+        else:
+            self.criterion = nn.CrossEntropyLoss(ignore_index=255, reduction="none")
 
         # DataLoader initialization
         if dataloader == "train":
@@ -181,11 +182,11 @@ class Client:
         return self.num_samples
 
     def set_teacher(self, model):
-        if isinstance(self.self_training, SelfTrainingLoss):
+        if not isinstance(self.criterion, SelfTrainingLoss):
             raise NoTeacherException
         self.criterion.set_teacher(model)
     
     def update_teacher(self, state_dict):
-        if isinstance(self.self_training, SelfTrainingLoss):
+        if not isinstance(self.criterion, SelfTrainingLoss):
             raise NoTeacherException
         self.criterion.teacher.load_state_dict(state_dict, strict=False)
