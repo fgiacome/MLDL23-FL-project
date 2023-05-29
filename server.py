@@ -132,7 +132,10 @@ class Server:
         for r in range(self.num_rounds):
             self.load_model_on_clients()
             if self.teacher_update_rounds is not None:
-                if r % self.teacher_update_rounds == 0:
+                if self.teacher_update_rounds == 0:
+                    if r == 0:
+                        self.load_teacher_model_on_clients()
+                elif r % self.teacher_update_rounds == 0:
                     self.load_teacher_model_on_clients()
             clients = self.select_clients()
             train_stats = self.train_round(clients)
