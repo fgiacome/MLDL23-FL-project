@@ -37,6 +37,7 @@ class Client:
             self.criterion = SelfTrainingLoss()
         else:
             self.criterion = nn.CrossEntropyLoss(ignore_index=255, reduction="none")
+        self.test_criterion = nn.CrossEntropyLoss(ignore_index=255, reduction="none")
 
         # DataLoader initialization
         if dataloader == "train":
@@ -166,7 +167,7 @@ class Client:
                 labels_pred = torch.argmax(labels_hat, dim=1)
 
                 # Compute loss
-                loss = self.criterion(labels_hat, labels)
+                loss = self.test_criterion(labels_hat, labels)
                 loss = self.reduction(loss, labels)
 
                 # Update loss and metrics
