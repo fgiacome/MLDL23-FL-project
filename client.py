@@ -90,7 +90,7 @@ class Client:
                 loss = self.criterion(labels_hat, labels)
                 loss = self.reduction(loss, labels)
             else:
-                loss = self.criterion.forward(labels_pred, images)
+                loss = self.criterion.forward(labels_hat, images)
 
             # Backpropagation
             loss.backward()
