@@ -58,7 +58,7 @@ class Server:
         self training loss object as a teacher.
         """
         for c in self.test_clients + self.train_clients:
-            c.update_teacher(self.model_params_dict, strict=False)
+            c.update_teacher(self.model_params_dict)
 
     def load_model_on_clients(self):
         """

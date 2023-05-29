@@ -188,4 +188,4 @@ class Client:
     def update_teacher(self, state_dict):
         if isinstance(self.self_training, SelfTrainingLoss):
             raise NoTeacherException
-        self.criterion.teacher.load_state_dict(state_dict)
+        self.criterion.teacher.load_state_dict(state_dict, strict=False)
