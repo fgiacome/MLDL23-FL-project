@@ -94,7 +94,7 @@ class DegradePumpGreen(object):
         w = np_img.shape[1]
         noise = np.int8((np.random.normal(size=(h,w,1), scale=self.sigma)+self.offset)
                         .clip(-128,127))
-        noise_ch2 = noise.pad(((0,0),(0,0),(1,1)))
+        noise_ch2 = np.pad(noise, ((0,0),(0,0),(1,1)))
         noisy = np.uint8((noise_ch2 + np_img).clip(0,255))
         noisy_PIL = Image.fromarray(noisy)
         if lbl is not None:
