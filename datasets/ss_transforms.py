@@ -54,7 +54,7 @@ class DegradeGaussianBlur(object):
         self.radius = radius
 
     def __call__(self, img, lbl=None):
-        blurry = img.ImageFilter(PIL.ImageFilter.GaussianBlur(radius=self.radius))
+        blurry = img.filter(PIL.ImageFilter.GaussianBlur(radius=self.radius))
         if lbl is not None:
             return blurry, lbl
         else:
