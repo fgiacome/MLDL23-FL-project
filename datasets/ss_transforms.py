@@ -5,6 +5,7 @@ import numbers
 import numpy as np
 import collections
 from PIL import Image
+import PIL
 import warnings
 import math
 
@@ -44,6 +45,62 @@ class Compose(object):
             format_string += '    {0}'.format(t)
         format_string += '\n)'
         return format_string
+    
+class DegradeGaussianBlur(object):
+    """
+    Strongly blur the image
+    """
+    def __init__(self, radius=5):
+        self.radius = radius
+
+    def __call__(self, img, lbl=None):
+        blurry = img.ImageFilter(PIL.ImageFilter.GaussianBlur(radius=self.radius))
+        if lbl is not None:
+            return blurry, lbl
+        else:
+            return blurry
+        
+class DegradeGaussianNoise(object):
+    """
+    Insert noise in the image
+    """
+    def __init__(self, sigma=35):
+        self.sigma = sigma
+
+    def __call__(self, img, lbl=None):
+        np_img = np.array(img)
+        h = np_img.shape[0]
+        w = np_img.shape[1]
+        noise = np.int8(np.random.normal(size=(h,w,1), scale=self.sigma)
+                        .clip(-128,127))
+        noisy = np.uint8((noise + np_img).clip(0,255))
+        noisy_PIL = Image.fromarray(noisy)
+        if lbl is not None:
+            return noisy_PIL, lbl
+        else:
+            return noisy_PIL
+
+class DegradePumpGreen(object):
+    """
+    Insert noise in the image
+    """
+    def __init__(self, offset=80, sigma=10):
+        self.sigma = sigma
+        self.offest = offset
+
+    def __call__(self, img, lbl=None):
+        np_img = np.array(img)
+        h = np_img.shape[0]
+        w = np_img.shape[1]
+        noise = np.int8((np.random.normal(size=(h,w,1), scale=self.sigma)+self.offset)
+                        .clip(-128,127))
+        noise_ch2 = noise.pad(((0,0),(0,0),(1,1)))
+        noisy = np.uint8((noise_ch2 + np_img).clip(0,255))
+        noisy_PIL = Image.fromarray(noisy)
+        if lbl is not None:
+            return noisy_PIL, lbl
+        else:
+            return noisy_PIL
 
 class FourierDomainAdaptation(object):
     """
