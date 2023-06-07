@@ -86,7 +86,7 @@ class DegradePumpGreen(object):
     """
     def __init__(self, offset=80, sigma=10):
         self.sigma = sigma
-        self.offest = offset
+        self.offset = offset
 
     def __call__(self, img, lbl=None):
         np_img = np.array(img)
