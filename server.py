@@ -179,7 +179,7 @@ class Server:
 
         for r in range(self.num_rounds):
             self.load_model_on_clients()
-            if (round >= self.n_rounds_no_prior) and (self.use_prior == False):
+            if (r >= self.n_rounds_no_prior) and (self.use_prior == False):
                 self.use_prior = True
             print(f"Round {round + 1}")
             clients = self.select_clients()
@@ -211,7 +211,7 @@ class Server:
             orchestra_statistics["Test"].append(acc)
             
             if path is not None:
-                self.save_checkpoint(path, r)
+                self.save_checkpoint(path + f"_{r}.json", r)
         return orchestra_statistics
 
     def eval_train(self):
