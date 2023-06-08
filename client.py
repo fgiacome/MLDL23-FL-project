@@ -127,7 +127,7 @@ class Client:
             loss_list[epoch] = loss
             mean_iou_list[epoch] = mean_iou
 
-        return loss_list, mean_iou_list
+        return torch.tensor(loss_list), mean_iou_list
 
     def test(self):
         """
