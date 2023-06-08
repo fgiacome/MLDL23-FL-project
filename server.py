@@ -181,7 +181,7 @@ class Server:
             self.load_model_on_clients()
             if (r >= self.n_rounds_no_prior) and (self.use_prior == False):
                 self.use_prior = True
-            print(f"Round {round + 1}")
+            print(f"Round {r + 1}")
             clients = self.select_clients()
             clients_loss = self.train_round(clients)
             orchestra_statistics["Train as it happens"].append(clients_loss)
