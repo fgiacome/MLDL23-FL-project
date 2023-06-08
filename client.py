@@ -10,6 +10,7 @@ from utils.utils import HardNegativeMining, MeanReduction
 class Client:
     def __init__(
         self,
+        client_id,
         client_dataset,
         batch_size,
         model,
@@ -20,6 +21,7 @@ class Client:
         reduction="MeanReduction",
     ):
         # Client dataset and attributes
+        self.client_id = client_id
         self.dataset = client_dataset
         self.name = client_dataset.client_name
         self.model = model
