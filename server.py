@@ -200,14 +200,14 @@ class Server:
             # acc = 0
             # stats = self.eval_train()
             # for _, res in stats.items():
-            #     acc += res["Accuracy"] / len(self.train_clients)
+            #     acc += res["mIoU"]["Mean IoU"] / len(self.train_clients)
             # orchestra_statistics["Train"].append(acc)
 
             # compute mean accuracy on test set
             acc = 0
             stats = self.test()
             for _, res in stats.items():
-                acc += res["Accuracy"] / len(self.test_clients)
+                acc += res["mIoU"]["Mean IoU"] / len(self.test_clients)
             orchestra_statistics["Test"].append(acc)
             
             if path is not None:
