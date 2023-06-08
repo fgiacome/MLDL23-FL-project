@@ -67,7 +67,7 @@ class Server:
             )
         else:
             return self.prng.choice(
-                self.train_clients, size=self.num_clients_per_round, replace=False
+                self.train_clients, size=self.clients_per_round, replace=False
             )
 
     def load_model_on_clients(self):
