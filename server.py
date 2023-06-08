@@ -184,8 +184,10 @@ class Server:
             print(f"Round {r + 1}")
             clients = self.select_clients()
             clients_loss = self.train_round(clients)
-            orchestra_statistics["Train as it happens"].append(clients_loss)
             constant_w_sum = self.update_weights(clients_loss)
+            for key in clients_loss.keys():
+                clients_loss[key] = clients_loss[key].cpu().tolist()
+            orchestra_statistics["Train as it happens"].append(clients_loss)
             self.aggregate(constant_w_sum)
 
             # normalize all weights (this normalization pass is extra)
@@ -204,11 +206,8 @@ class Server:
             # orchestra_statistics["Train"].append(acc)
 
             # compute mean accuracy on test set
-            acc = 0
             stats = self.test()
-            for _, res in stats.items():
-                acc += res["mIoU"]["Mean IoU"] / len(self.test_clients)
-            orchestra_statistics["Test"].append(acc)
+            orchestra_statistics["Test"].append(stats)
             
             if path is not None:
                 self.save_checkpoint(path + f"_{r}.json", r)
