@@ -170,7 +170,7 @@ class Server:
         # self.model_params_dict = copy.deepcopy(self.model.state_dict())
         self.updates = []
 
-    def train(self):
+    def train(self, path=None):
         """
         This method orchestrates the training the evals and tests at rounds level
         :return: Train / test statistics at each round. "Train as it happens" is the typical epoch loss returned from each client.
@@ -209,6 +209,9 @@ class Server:
             for _, res in stats.items():
                 acc += res["Accuracy"] / len(self.test_clients)
             orchestra_statistics["Test"].append(acc)
+            
+            if path is not None:
+                self.save_checkpoint(path, r)
         return orchestra_statistics
 
     def eval_train(self):
@@ -236,3 +239,11 @@ class Server:
             eval_statistics[c.client_id]["Loss"] = l
             eval_statistics[c.client_id]["mIoU"] = m
         return eval_statistics
+    
+    def save_checkpoint(self, path, round):
+        torch.save(
+            {
+                "round": round,
+                "model_state_dict": self.model.state_dict()
+            }, path
+        )
