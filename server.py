@@ -194,7 +194,7 @@ class Server:
                 weights_sum += w
             for client_id, w in self.weights.items():
                 self.weights[client_id] = w / weights_sum
-            self.weights_track.append(self.weigths.copy())
+            self.weights_track.append(self.weights.copy())
 
             # compute mean accuracy on train set
             acc = 0
