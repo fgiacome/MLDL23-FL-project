@@ -175,7 +175,7 @@ class Server:
         This method orchestrates the training the evals and tests at rounds level
         :return: Train / test statistics at each round. "Train as it happens" is the typical epoch loss returned from each client.
         """
-        orchestra_statistics = {"Train": [], "Test": [], "Train as it happens": []}
+        orchestra_statistics = {"Test": [], "Train as it happens": []}
 
         for r in range(self.num_rounds):
             self.load_model_on_clients()
@@ -196,12 +196,12 @@ class Server:
                 self.weights[client_id] = w / weights_sum
             self.weights_track.append(self.weights.copy())
 
-            # compute mean accuracy on train set
-            acc = 0
-            stats = self.eval_train()
-            for _, res in stats.items():
-                acc += res["Accuracy"] / len(self.train_clients)
-            orchestra_statistics["Train"].append(acc)
+            # # compute mean accuracy on train set
+            # acc = 0
+            # stats = self.eval_train()
+            # for _, res in stats.items():
+            #     acc += res["Accuracy"] / len(self.train_clients)
+            # orchestra_statistics["Train"].append(acc)
 
             # compute mean accuracy on test set
             acc = 0
