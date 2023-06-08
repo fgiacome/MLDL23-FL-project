@@ -124,7 +124,7 @@ class Server:
 
         # Compute the standard deviation for each epoch
         sigma2 = ((loss_tensor - mean_loss) ** 2).sum(dim=0) / (len(client_loss) - 1)
-        std_loss = sigma2 * (weights2_sum / weights_sum)
+        std_loss = sigma2 * (weights2_sum / weights_sum ** 2) * (1 / len(client_loss))
 
         self.epochs_stds = torch.sqrt(std_loss)
 
