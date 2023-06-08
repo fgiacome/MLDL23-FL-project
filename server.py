@@ -28,7 +28,7 @@ class Server:
         self.epochs_per_round = epochs_per_round
         self.use_prior = use_prior
         self.n_rounds_no_prior = (
-            int(n_rounds_no_prior * num_rounds) if self.use_prior == False else 1
+            int(n_rounds_no_prior * num_rounds)
         )
         self.weights = OrderedDict(
             (client.client_id, 1 / len(self.train_clients))
