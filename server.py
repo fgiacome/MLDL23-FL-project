@@ -168,3 +168,11 @@ class Server:
             eval_statistics[str(c)]["Loss"] = l
             eval_statistics[str(c)]["mIoU"] = m
         return eval_statistics
+
+    def save_checkpoint(self, path, round):
+        torch.save(
+            {
+                "round": round,
+                "model_state_dict": self.model.state_dict()
+            }, path
+        )
