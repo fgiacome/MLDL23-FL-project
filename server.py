@@ -122,7 +122,7 @@ class Server:
         # self.model_params_dict = copy.deepcopy(self.model.state_dict())
         self.updates = []
 
-    def train(self):
+    def train(self, path=None):
         """
         This method orchestrates the training the evals and tests at rounds level
         :return: list (one elem per round) of dicts (one key per client) of dicts
@@ -141,6 +141,8 @@ class Server:
             train_stats = self.train_round(clients)
             orchestra_statistics.append(train_stats)
             self.aggregate()
+            if path is not None:
+                self.save_checkpoint(path + f"_{r}.json", r)
         return orchestra_statistics
 
     def eval_train(self):
