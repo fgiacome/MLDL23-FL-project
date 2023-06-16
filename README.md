@@ -18,3 +18,5 @@ MLDL_Datasets/
 ```
 
 where the folders GTA5 and idda contain the (unpacked) provided datasets.
+
+You can download checkpoints for our models trained on GTA with and without FDA, and for a model trained with the federated domain-adaptation technique, at this link: https://drive.google.com/drive/folders/1_gLQ-sGO60VJfoWXbhkIKhVIwcChHPcG?usp=sharing
