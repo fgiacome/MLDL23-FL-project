@@ -2,6 +2,8 @@
 
 This repository contains the code of our project.
 
+The repository has three branches. On the main branch, you can find code to do plain FedAvg, on the branch "fed_w_avg" you can find the server which performs our own aggregation strategy, on the branch "self_training" you can find the server and the clients that perform federated domain adaptation.
+
 The training was entirely performed on Google Colab, so
 some relevant portions of the code are in the form of
 jupyter notebooks.
